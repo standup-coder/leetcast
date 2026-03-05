@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { LeetCodeProblem } from './leetcode';
+import { LeetCodeProblem } from '../types/leetcode';
 import OpenAI from 'openai';
 import { ElevenLabsClient } from 'elevenlabs';
 import fs from 'fs-extra';
@@ -34,22 +33,20 @@ export class MCPService {
     }
 
     try {
-      // 1. Generate Script using OpenAI
       const script = await this.generateScript(problem);
-
-      // 2. Generate Audio using ElevenLabs
       const audioPath = await this.generateAudio(script, problem.id);
 
       return {
         problemId: problem.id,
         title: `LeetCast Episode ${problem.id}: ${problem.title}`,
-        audioUrl: audioPath, // Return local path
+        audioUrl: audioPath,
         duration: this.estimateDuration(script),
-        transcript: script
+        transcript: script,
       };
-    } catch (error) {
-      console.error(`[MCP] Error in real generation: ${error}`);
-      throw new Error(`Failed to generate podcast via MCP: ${error}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[MCP] Error in real generation: ${errorMessage}`);
+      throw new Error(`Failed to generate podcast via MCP: ${errorMessage}`);
     }
   }
 
@@ -74,11 +71,12 @@ export class MCPService {
     `;
 
     const response = await this.openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    return response.choices[0].message.content || "";
+    const content = response.choices[0]?.message?.content;
+    return content || '';
   }
 
   private static async generateAudio(text: string, problemId: string): Promise<string> {
@@ -87,36 +85,35 @@ export class MCPService {
     const fileName = `lc-${problemId}.mp3`;
     const filePath = path.join(downloadDir, fileName);
 
-    // If already exists, skip generation (cache)
     if (await fs.pathExists(filePath)) {
       return filePath;
     }
 
     const audioStream = await this.elevenlabs.generate({
-      voice: process.env.ELEVENLABS_VOICE_ID || "pNInz6obpg8n9YZpUI0j",
+      voice: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpg8n9YZpUI0j',
       text: text,
-      model_id: "eleven_multilingual_v2",
+      model_id: 'eleven_multilingual_v2',
     });
 
-    // Handle different return types from ElevenLabs SDK
     if (Buffer.isBuffer(audioStream)) {
       await fs.writeFile(filePath, audioStream);
-    } else if (typeof (audioStream as any).pipe === 'function') {
+    } else if (audioStream && typeof (audioStream as NodeJS.ReadableStream).pipe === 'function') {
       const fileStream = fs.createWriteStream(filePath);
-      await new Promise((resolve, reject) => {
-        (audioStream as any).pipe(fileStream);
-        fileStream.on('finish', resolve);
+      await new Promise<void>((resolve, reject) => {
+        (audioStream as NodeJS.ReadableStream).pipe(fileStream);
+        fileStream.on('finish', () => resolve());
         fileStream.on('error', reject);
       });
     } else {
-      // It might be a web ReadableStream or something else
-      const response = await (audioStream as any);
-      if (response instanceof Buffer) {
+      const response = audioStream;
+      if (Buffer.isBuffer(response)) {
         await fs.writeFile(filePath, response);
-      } else {
-        // Fallback for newer SDK versions that might return a stream/blob
-        const chunks = [];
-        for await (const chunk of audioStream as any) {
+      } else if (
+        response &&
+        typeof (response as AsyncIterable<Buffer>)[Symbol.asyncIterator] === 'function'
+      ) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of response as AsyncIterable<Buffer>) {
           chunks.push(chunk);
         }
         await fs.writeFile(filePath, Buffer.concat(chunks));
@@ -139,8 +136,8 @@ export class MCPService {
       problemId: problem.id,
       title: `LeetCast Episode ${problem.id}: ${problem.title} (Mock)`,
       audioUrl: `https://example.com/audio/lc-${problem.id}.mp3`,
-      duration: "1:30",
-      transcript: `[MOCK] Welcome to LeetCast. Today we are discussing ${problem.title}. ${problem.description}...`
+      duration: '1:30',
+      transcript: `[MOCK] Welcome to LeetCast. Today we are discussing ${problem.title}. ${problem.description}...`,
     };
   }
 }

@@ -1,4 +1,4 @@
-import { LeetCodeProblem } from './leetcode';
+import { LeetCodeProblem } from '../types/leetcode';
 export interface PodcastEpisode {
     problemId: string;
     title: string;
@@ -7,6 +7,12 @@ export interface PodcastEpisode {
     transcript: string;
 }
 export declare class MCPService {
-    private static MCP_ENDPOINT;
+    private static openai;
+    private static elevenlabs;
     static generatePodcast(problem: LeetCodeProblem): Promise<PodcastEpisode>;
+    private static generateScript;
+    private static generateAudio;
+    private static estimateDuration;
+    private static generateMockPodcast;
 }
+//# sourceMappingURL=mcp.d.ts.map

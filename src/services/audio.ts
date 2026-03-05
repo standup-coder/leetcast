@@ -33,7 +33,7 @@ export class AudioService {
         const response = await axios({
           url,
           method: 'GET',
-          responseType: 'stream'
+          responseType: 'stream',
         });
         const writer = fs.createWriteStream(filePath);
         response.data.pipe(writer);

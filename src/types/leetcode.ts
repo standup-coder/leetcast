@@ -1,8 +1,10 @@
+export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+
 export interface LeetCodeProblem {
   id: string;
   title: string;
   titleSlug: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard' | string;
+  difficulty: Difficulty | string;
   topics: string[];
   description: string;
   acceptanceRate: string;
@@ -14,5 +16,5 @@ export interface LeetCodeProblem {
 
 export interface GraphQLResponse<T> {
   data: T;
-  errors?: any[];
+  errors?: Array<{ message: string }>;
 }

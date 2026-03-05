@@ -4,7 +4,8 @@ import { retryWithBackoff, sleep } from '../utils/retry-utils';
 
 export class LeetCodeGraphQLClient {
   private static readonly ENDPOINT = 'https://leetcode.com/graphql';
-  private static readonly USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  private static readonly USER_AGENT =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
   static async query<T>(query: string, variables: any = {}): Promise<T> {
     return retryWithBackoff(async () => {
@@ -15,7 +16,7 @@ export class LeetCodeGraphQLClient {
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': this.USER_AGENT,
-            'Referer': 'https://leetcode.com/',
+            Referer: 'https://leetcode.com/',
           },
           timeout: 10000,
         }
@@ -27,7 +28,7 @@ export class LeetCodeGraphQLClient {
 
       // Add a small delay to avoid rate limiting
       await sleep(200);
-      
+
       return response.data.data;
     });
   }
@@ -63,14 +64,14 @@ export class LeetCodeGraphQLClient {
         }
       }
     `;
-    
+
     const data = await this.query<{ problemsetQuestionList: { questions: any[] } }>(query, {
-      categorySlug: "",
+      categorySlug: '',
       limit,
       skip: 0,
-      filters: {}
+      filters: {},
     });
-    
+
     return data.problemsetQuestionList.questions;
   }
 
@@ -100,7 +101,7 @@ export class LeetCodeGraphQLClient {
         }
       }
     `;
-    
+
     const data = await this.query<{ question: any }>(query, { titleSlug });
     return data.question;
   }

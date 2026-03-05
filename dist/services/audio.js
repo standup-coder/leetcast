@@ -34,7 +34,7 @@ class AudioService {
                 const response = await (0, axios_1.default)({
                     url,
                     method: 'GET',
-                    responseType: 'stream'
+                    responseType: 'stream',
                 });
                 const writer = fs_extra_1.default.createWriteStream(filePath);
                 response.data.pipe(writer);
@@ -79,3 +79,4 @@ class AudioService {
     }
 }
 exports.AudioService = AudioService;
+//# sourceMappingURL=audio.js.map

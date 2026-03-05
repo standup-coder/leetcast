@@ -4,3 +4,4 @@ export declare class AudioService {
     static downloadAudio(url: string, filename: string): Promise<string>;
     static playAudio(filePath: string): Promise<void>;
 }
+//# sourceMappingURL=audio.d.ts.map
