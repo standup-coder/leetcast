@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { prisma } from '@leetcast/database';
+
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { podcastId, progress, completed } = body;
+
+  if (!podcastId || typeof progress !== 'number') {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  }
+
+  const history = await prisma.playHistory.upsert({
+    where: {
+      userId_podcastId: {
+        userId: session.user.id,
+        podcastId,
+      },
+    },
+    update: {
+      progress,
+      completed: completed || false,
+    },
+    create: {
+      userId: session.user.id,
+      podcastId,
+      progress,
+      completed: completed || false,
+    },
+  });
+
+  // Check-in logic: if completed, ensure check-in for today
+  if (completed) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    await prisma.checkIn.upsert({
+      where: {
+        userId_date: {
+          userId: session.user.id,
+          date: today,
+        },
+      },
+      update: {},
+      create: {
+        userId: session.user.id,
+        date: today,
+      },
+    });
+
+    // Update streak
+    await updateStreak(session.user.id);
+  }
+
+  return NextResponse.json(history);
+}
+
+async function updateStreak(userId: string) {
+  const progress = await prisma.userProgress.findUnique({
+    where: { userId },
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const lastCheckIn = progress?.lastCheckInDate;
+  let currentStreak = progress?.currentStreak || 0;
+
+  if (lastCheckIn) {
+    const lastDate = new Date(lastCheckIn);
+    lastDate.setHours(0, 0, 0, 0);
+    if (lastDate.getTime() === yesterday.getTime()) {
+      currentStreak += 1;
+    } else if (lastDate.getTime() === today.getTime()) {
+      // already checked in today, do nothing
+    } else {
+      currentStreak = 1;
+    }
+  } else {
+    currentStreak = 1;
+  }
+
+  await prisma.userProgress.upsert({
+    where: { userId },
+    update: {
+      currentStreak,
+      longestStreak: Math.max(currentStreak, progress?.longestStreak || 0),
+      lastCheckInDate: today,
+      totalCompleted: { increment: 1 },
+    },
+    create: {
+      userId,
+      currentStreak,
+      longestStreak: currentStreak,
+      lastCheckInDate: today,
+      totalCompleted: 1,
+    },
+  });
+}
