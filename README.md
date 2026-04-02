@@ -3,20 +3,19 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**LeetCast** 是一个创新的开发者工具，它将 LeetCode 题目转化为高质量的语音播报（Podcast）。通过集成 OpenAI 的智能分析和 ElevenLabs 的顶尖语音合成技术，让你可以随时随地“听”题，利用碎片时间深化对算法和数据结构的理解。
+**LeetCast** 是一个面向程序员的每日一题播客平台。每天登录，听一集 LeetCode 解题讲解播客，利用碎片时间提升算法能力。
 
 ---
 
 ## ✨ 核心特性
 
-- 🎧 **算法播报**：将复杂的算法题目转化为自然、易听的播报内容。
-- 🤖 **AI 深度解析**：利用 OpenAI GPT 模型生成题目的核心思路、关键点和解题策略。
-- 🔊 **顶尖音质**：集成 ElevenLabs API，提供多语种、多情感的高仿真人声。
-- 🔍 **海量题库**：支持通过 LeetCode GraphQL API 实时获取或从本地缓存加载 Top 100 热门题目。
-- 🛠️ **多模式支持**：
-  - **CLI 模式**：命令行交互，快速查找并生成播报。
-  - **MCP Server**：集成到 AI 助手（如 Claude/Cursor），让 AI 随时为你播报题目。
-- 💾 **本地缓存**：完善的题目缓存机制，支持离线搜索和快速访问。
+- 🎧 **每日一题播客**：AI 生成多角色对话式讲解，配合背景音乐与片头片尾
+- 🤖 **AI 深度解析**：OpenAI GPT-4o 生成思路、代码 walkthrough、复杂度分析
+- 🔊 **顶级音质**：ElevenLabs 多角色语音合成，主持人 + 资深工程师双人对谈
+- 🔍 **海量题库**：LeetCode Top 100 实时同步，支持标签/难度筛选
+- 💾 **学习追踪**：播放进度自动保存、连续打卡、排行榜、分享海报
+- 🛠️ **Admin 后台**：三种选题策略（难度渐进 / 经典题单 / 弱项强化）
+- 🏗️ **Monorepo 架构**：Next.js Web + BullMQ Worker + PostgreSQL + Redis + S3
 
 ---
 
@@ -24,124 +23,112 @@
 
 ### 前置要求
 
-- **Node.js**: v18.0.0 或更高版本
-- **Package Manager**: npm (随 Node.js 安装)
-- **API Keys**:
-  - [OpenAI API Key](https://platform.openai.com/)
-  - [ElevenLabs API Key](https://elevenlabs.io/)
+- Node.js >= 18
+- pnpm >= 9
+- Docker & Docker Compose
+- FFmpeg
 
-### 安装步骤
+### 安装与启动
 
-1. **克隆项目**
-   ```bash
-   git clone https://github.com/your-username/leetcast.git
-   cd leetcast
-   ```
-
-2. **安装依赖**
-   ```bash
-   npm install
-   ```
-
-3. **配置环境变量**
-   复制 `.env.example` 并重命名为 `.env`，填入你的 API 密钥：
-   ```bash
-   cp .env.example .env
-   ```
-   编辑 `.env`:
-   ```env
-   OPENAI_API_KEY=your_openai_key
-   ELEVENLABS_API_KEY=your_elevenlabs_key
-   # 可选：配置默认保存路径
-   DOWNLOAD_DIR=./downloads
-   ```
-
-4. **初始化题库缓存**
-   运行以下脚本从 LeetCode 获取 Top 100 热门题目：
-   ```bash
-   npm run update-problems
-   ```
-
----
-
-## 🛠️ 使用方法
-
-### 1. 命令行交互 (CLI)
-
-运行交互式控制台，搜索题目并生成播报：
 ```bash
-npm run dev
+# 1. 克隆并进入项目
+git clone https://github.com/your-username/leetcast.git
+cd leetcast
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 配置环境变量
+cp .env.example apps/web/.env
+cp .env.example apps/worker/.env
+# 编辑 .env 填入 API Keys
+
+### 接入阿里云百炼（可选）
+
+若不想使用 OpenAI，可直接接入**阿里云百炼**的兼容模式。在 `apps/worker/.env` 中配置：
+
+```env
+OPENAI_API_KEY=sk-你的百炼Key
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+OPENAI_MODEL=qwen-max
 ```
 
-### 2. 作为 MCP Server 使用
+配置完成后触发一次每日播客生成（Admin 面板或 `curl POST /api/admin/daily`），即可看到：
+- **脚本**：由百炼 `qwen-max` 生成真实的双人对话播客脚本。
+- **音频**：若未配置 ElevenLabs，系统会 fallback 为 5 秒 mock 音频，但文字稿已经是真实 LLM 内容了。
 
-在 `cursor` 或 `claude` 的配置文件中添加以下配置：
+> 如需完整真实音频，可额外配置 `ELEVENLABS_API_KEY`；或继续使用百炼的 CosyVoice 等国产 TTS 方案替换 ElevenLabs。
 
-```json
-{
-  "mjs-servers": {
-    "leetcast": {
-      "command": "npx",
-      "args": ["-y", "ts-node", "/absolute/path/to/leetcast/src/mcp-server.ts"]
-    }
-  }
-}
+# 4. 启动基础设施（PostgreSQL + Redis + MinIO）
+docker compose up -d
+
+# 5. 构建共享包
+pnpm --filter @leetcast/core build
+pnpm --filter @leetcast/database build
+
+# 6. 初始化数据库并填充题库
+pnpm db:push
+pnpm --filter database db:seed
+
+# 7. 启动 Worker（终端 A）
+pnpm --filter @leetcast/worker dev
+
+# 8. 启动 Web（终端 B）
+pnpm --filter @leetcast/web dev
 ```
 
-### 3. 更新本地题库
+访问 http://localhost:3000
 
-随时更新最新的热门题目：
-```bash
-npm run update-problems
-```
+Admin 后台：http://localhost:3000/admin
 
 ---
 
 ## 🏗️ 项目架构
 
-```text
-src/
-├── services/
-│   ├── leetcode.ts        # 题库管理服务
-│   ├── graphql-client.ts  # LeetCode API 客户端
-│   ├── audio.ts           # 音频生成与合成服务
-│   └── mcp.ts             # MCP 协议实现
-├── utils/
-│   ├── cache-manager.ts   # 本地缓存管理
-│   └── retry-utils.ts     # 网络重试机制
-├── scripts/
-│   └── update-problems.ts # 题库更新脚本
-└── cli.ts                 # CLI 交互入口
+```
+leetcast/
+├── apps/
+│   ├── cli/              # 原始 CLI 工具（保留）
+│   ├── web/              # Next.js 14 Web App
+│   └── worker/           # BullMQ Worker（播客生成）
+├── packages/
+│   ├── core/             # 共享业务逻辑（LeetCode API、TTS、FFmpeg 混音）
+│   └── database/         # Prisma + 数据库访问 + 选题策略
+├── docker-compose.yml    # 本地基础设施
+└── DEPLOY.md             # 部署指南
 ```
 
 ---
 
-## 📈 路线图
+## 📈 已完成功能
 
-- [x] LeetCode GraphQL API 集成
-- [x] 本地缓存机制
-- [ ] 支持按标签（Tag）和公司（Company）分类获取
-- [ ] 增加更多语音角色选择
-- [ ] 支持中文播报优化
-- [ ] 提供 Web 预览界面
+- [x] Monorepo + Turborepo 工程化
+- [x] PostgreSQL + Prisma 数据模型
+- [x] Redis + BullMQ 任务队列
+- [x] MinIO / S3 对象存储
+- [x] 多角色播客脚本生成（GPT-4o）
+- [x] 多角色音频合成 + FFmpeg 混音（BGM + 片头片尾）
+- [x] GitHub OAuth 登录
+- [x] 每日一题首页 + 自定义播放器
+- [x] 播放进度自动保存 + 打卡逻辑
+- [x] 题单浏览 + 搜索 + 筛选
+- [x] 个人中心（打卡日历、学习统计）
+- [x] 排行榜
+- [x] 分享海报 SVG
+- [x] Admin 后台（选题策略 + 发布）
+- [x] Worker Docker 镜像 + 部署文档
 
 ---
 
 ## 🤝 贡献指南
 
-我们欢迎所有形式的贡献！无论是提交 Bug 反馈、建议新功能，还是直接贡献代码，请随时开启 Issue 或提交 Pull Request。
-
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+见 [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ---
 
 ## 📄 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+MIT License
 
 ---
 

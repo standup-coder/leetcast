@@ -1,13 +1,55 @@
+version: '3.8'
+
 services:
-  leetcast:
-    build: .
-    container_name: leetcast
+  postgres:
+    image: postgres:16-alpine
+    container_name: leetcast-postgres
     environment:
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
-      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: leetcast
+    ports:
+      - "5432:5432"
     volumes:
-      - ./downloads:/app/downloads
-      - ./cache:/app/cache
-    command: node dist/cli.js
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: leetcast-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: leetcast-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
